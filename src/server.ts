@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { PrismaClient } from '@prisma/client';
@@ -5,12 +6,12 @@ import { createClient } from '@libsql/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
 import { getLocationFromIP } from './utils.js';
 
-// LibSQL setup configured to use environment variables for production (Turso) or fall back to local dev.db
-const libsql = createClient({
-    url: process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || 'file:./dev.db',
+const dbUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || 'file:./dev.db';
+const adapterConfig = {
+    url: dbUrl,
     ...(process.env.TURSO_AUTH_TOKEN ? { authToken: process.env.TURSO_AUTH_TOKEN } : {})
-});
-const adapter = new PrismaLibSql(libsql);
+};
+const adapter = new PrismaLibSql(adapterConfig);
 const prisma = new PrismaClient({ adapter });
 
 const server = Fastify({ logger: true });
@@ -96,10 +97,15 @@ server.get('/stats', async (request, reply) => {
     return reply.status(200).send(links);
 });
 
+server.get('/', async (request, reply) => {
+    return reply.status(200).send({ message: "Links Tracker API is running!" });
+});
+
 const start = async () => {
     try {
-        await server.listen({ port: 3001, host: '0.0.0.0' });
-        console.log('Servidor rodando em http://localhost:3001');
+        const port = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+        await server.listen({ port, host: '0.0.0.0' });
+        console.log(`Servidor rodando em http://localhost:${port}`);
     } catch (err) {
         server.log.error(err);
         process.exit(1);
